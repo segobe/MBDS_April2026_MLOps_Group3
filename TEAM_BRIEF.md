@@ -16,7 +16,7 @@ Validation rules: required columns present; no duplicate ts; hr in 0..23; cnt no
 ## Contract details, decisions and owners
 README follow-ups: rewrite problem statement for crew scheduling -> Sebastian Gollhofer; re-select max_iter and check the 0.85 gate at the 17:00 cutoff in an exploratory notebook, then run the gate at weights 1.5 and 3 -> Daniel Rodriguez; crew KPI baselines and batch times -> Sebastian Gollhofer with client
 features.py signature: get_feature_preprocessor(calendar_columns, past_demand_columns), settings per group: none (passthrough)
-Agreed extra parameters: split_data(time_ordered=False), clean_dataframe(cutoff_hour=17), evaluate_model(under_weight=2.0, baseline_column=None)
+Agreed extra parameters: split_data(time_ordered=False), clean_dataframe(cutoff_hour=17, demand_column="cnt"), evaluate_model(under_weight=2.0, baseline_column=None)
 utils.py helpers: load_csv, save_csv, save_model, load_model
 Environment: no packages beyond pandas, numpy, scikit-learn, joblib, pytest, pytest-cov, flake8, plus notebook tools matplotlib and ipykernel (notebooks only, never imported in src/)
 Decisions: split -> chronological, SETTINGS passes time_ordered=True (shuffling leaks the future; notebook section 4)
