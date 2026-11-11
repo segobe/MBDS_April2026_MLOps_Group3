@@ -18,7 +18,7 @@ README follow-ups: rewrite problem statement for crew scheduling -> Sebastian Go
 features.py signature: get_feature_preprocessor(calendar_columns, past_demand_columns), settings per group: none (passthrough)
 Agreed extra parameters: split_data(time_ordered=False), clean_dataframe(cutoff_hour=17), evaluate_model(under_weight=2.0, baseline_column=None)
 utils.py helpers: load_csv, save_csv, save_model, load_model
-Environment: no packages beyond pandas, numpy, scikit-learn, joblib, pytest, pytest-cov, flake8 (matplotlib stays notebook-only)
+Environment: no packages beyond pandas, numpy, scikit-learn, joblib, pytest, pytest-cov, flake8, plus notebook tools matplotlib and ipykernel (notebooks only, never imported in src/)
 Decisions: split -> chronological, SETTINGS passes time_ordered=True (shuffling leaks the future; notebook section 4)
 Decisions: missing hours -> inserted in clean_data with cnt, casual and registered 0 and is_imputed 1 (notebook section 2; README Data)
 Decisions: lags -> fixed rules relative to 17:00 the day before the target date, in clean_data; training mode drops rows without 7 days of history (to confirm)
