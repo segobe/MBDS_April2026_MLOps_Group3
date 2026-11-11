@@ -129,7 +129,6 @@ def test_unit_invalid_inputs_raise(
         evaluate_model(model, X_eval, y_eval, **call_kwargs)
 
 
-@pytest.mark.skip(reason="Awaiting train in dev")
 def test_integration_scores_trained_pipeline() -> None:
     """A pipeline from train_model is scored and every metric is a plain float."""
     from src.features import get_feature_preprocessor
@@ -143,7 +142,6 @@ def test_integration_scores_trained_pipeline() -> None:
     })
     y = pd.Series([float(12 + i % 24) for i in range(n_rows)])
     preprocessor = get_feature_preprocessor(["hr", "weekday"], ["lag_168"])
-    # signature to confirm with the train owner once it is merged
     model = train_model(X, y, preprocessor, "regression")
 
     metrics = evaluate_model(model, X, y, "regression", baseline_column="lag_168")

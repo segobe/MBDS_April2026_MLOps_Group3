@@ -193,7 +193,6 @@ def _make_raw_hourly_df(days: int) -> pd.DataFrame:
     )
 
 
-@pytest.mark.skip(reason="Awaiting clean_data in dev")
 def test_integration_clean_output_passes() -> None:
     """clean_dataframe output on 10 synthetic days passes every rule in training mode."""
     from src import clean_data

@@ -15,7 +15,9 @@ from sklearn.utils.validation import check_is_fitted
 
 from src.train import train_model
 
-TINY_PARAMS = {"loss": "quantile", "quantile": 2 / 3, "max_iter": 10, "min_samples_leaf": 1}
+TINY_PARAMS = {
+    "loss": "quantile", "quantile": 2 / 3, "max_iter": 10, "min_samples_leaf": 1, "early_stopping": False,
+}
 
 
 def _training_data(n_rows: int = 30) -> tuple[pd.DataFrame, pd.Series]:
@@ -133,7 +135,6 @@ def test_unit_invalid_inputs_raise(overrides: dict, match: str) -> None:
         train_model(**kwargs)
 
 
-@pytest.mark.skip(reason="Awaiting features in dev")
 def test_integration_features_then_train_then_predict() -> None:
     """The real feature recipe, fitted by train_model, predicts one value per row."""
     from src.features import get_feature_preprocessor
