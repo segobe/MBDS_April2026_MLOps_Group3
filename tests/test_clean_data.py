@@ -150,3 +150,26 @@ def test_unit_input_errors(case: str, kwargs: dict, match: str) -> None:
     """Each broken input raises ValueError naming the value and the SETTINGS key to check."""
     with pytest.raises(ValueError, match=match):
         clean_dataframe(_broken_frame(case), **kwargs)
+
+
+def test_integration_inference_output_passes_validate() -> None:
+    """Inference output with inserted hours and tomorrow's empty demand passes validate_dataframe."""
+    from src.validate import validate_dataframe
+
+    validation_settings = {
+        "required_columns": [
+            "dteday", "hr", "weekday", "mnth", "season", "holiday", "workingday",
+            "cnt", "casual", "registered", "ts", "is_imputed",
+            "lag_48", "lag_168", "mean_168_to_cutoff",
+        ],
+        "id_column": "ts",
+        "value_ranges": {"hr": [0, 23], "cnt": [0, None]},
+        "allowed_values": {"holiday": [0, 1], "workingday": [0, 1]},
+        "integer_columns": ["cnt"],
+        "sum_rules": {"cnt": ["casual", "registered"]},
+    }
+    df = _make_hourly_df(11)
+    df.loc[df.index >= 240, ["casual", "registered", "cnt"]] = np.nan
+    out = clean_dataframe(df.drop(index=[100, 101]), target_column=None)
+    assert out["is_imputed"].sum() == 2
+    assert validate_dataframe(out, **validation_settings) is True
