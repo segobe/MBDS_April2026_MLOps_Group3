@@ -51,6 +51,19 @@ def test_unit_cutoff_features_known_values() -> None:
     assert row["lag_48"] == 154
     assert row["lag_168"] == 34
     assert row["mean_168_to_cutoff"] == pytest.approx(100.5)
+    assert row["lag_24_before_cutoff"] == 178
+    assert row["last_hour_before_cutoff"] == 184
+
+
+@pytest.mark.parametrize("hour, expected", [(16, 184), (17, None), (23, None)])
+def test_unit_lag_24_only_before_cutoff(hour: int, expected: int | None) -> None:
+    """Same hour yesterday is used up to hour 16 and missing from the cutoff hour on (it is after 17:00 on D - 1)."""
+    out = clean_dataframe(_make_hourly_df(10), target_column="cnt", cutoff_hour=17)
+    row = out.loc[out["ts"] == pd.Timestamp(f"2011-01-09 {hour}:00")].iloc[0]
+    if expected is None:
+        assert pd.isna(row["lag_24_before_cutoff"])
+    else:
+        assert row["lag_24_before_cutoff"] == expected
 
 
 def test_unit_training_mode_drops_warm_up_rows() -> None:
@@ -103,7 +116,7 @@ def test_unit_inference_mode_keeps_every_row() -> None:
 def test_unit_no_leakage_after_cutoff() -> None:
     """Scrambling demand from 17:00 on D - 1 onwards leaves every feature of date D unchanged."""
     df = _make_hourly_df(10)
-    features = ["lag_48", "lag_168", "mean_168_to_cutoff"]
+    features = ["lag_48", "lag_168", "mean_168_to_cutoff", "lag_24_before_cutoff", "last_hour_before_cutoff"]
     target_day = pd.Timestamp("2011-01-10")
     clean = clean_dataframe(df, target_column=None)
     scrambled = df.copy()
