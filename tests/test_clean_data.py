@@ -29,7 +29,7 @@ def _make_hourly_df(days: int) -> pd.DataFrame:
             "mnth": ts.month,
             "hr": ts.hour,
             "holiday": 0,
-            "weekday": (ts.dayofweek + 1) % 7,
+            "weekday": (ts.day_of_week + 1) % 7,
             "workingday": (ts.dayofweek < 5).astype(int),
             "weathersit": 1,
             "temp": 0.5,
