@@ -2,6 +2,10 @@
 
 > Capital Bikeshare should fund this MLOps forecasting system because gated releases, drift monitoring and automatic fallback keep tomorrow's crew plans reliable, unlike one-off notebooks.
 
+## Quick start
+Setup, tests and the pipeline run: [section 2](#2-setup-test-and-run). Results and evidence: [section 3](#3-results-and-evidence).
+
+
 ## 1. Business case
 
 ### Context
@@ -61,7 +65,7 @@ Label: `cnt`, the hourly total of casual and registered rentals, known only afte
 
 Refresh: the UCI file is a fixed snapshot. In the scenario, new data enters at the nightly 18:00 batch, and a Data Engineering team owns ingestion, validation and versioning.
 
-Inputs: calendar variables, `lag_48`, `lag_168` and the 7-day mean ending at the 17:00 cutoff. Weather, `casual`, `registered` and `is_imputed` are excluded.
+Inputs: calendar variables, `lag_48`, `lag_168`, the 7-day mean ending at the 17:00 cutoff, same hour yesterday (only for hours before 17:00) and the last hour before the cutoff (16:00). Weather, `casual`, `registered` and `is_imputed` are excluded.
 
 Personal data: none. The data is aggregated hourly counts with no customer identifiers. Production access would still need security and governance controls.
 
@@ -86,15 +90,98 @@ Limitation: training data covers 2011 to 2012, so recent operational data is nee
 | Unauthorised access or misuse | Authentication, role-based access control, logging of roster decisions |
 
 ### Open gaps
+- **Quality gate not met:** the model is 7 % better than same hour last week on validation (ratio 0.927), not the 15 % the gate requires (section 3). Next step: test a level-relative target, retraining on the most recent months, or a shorter validation window.
+- **Gate reported, not enforced:** `main` logs whether the gate is met but always saves the model and writes the forecast; the fallback (same hour last week, then the weekday by hour average) and the input freshness check are not built yet.
 - Problem statement still describes station shortages and rebalancing; rewrite it in the team's words to match the crew scheduling decision.
 - Idle crew hour and overtime baselines: To be measured (need client rosters and payroll records); the idle hours target is still to be agreed with the client.
-- The 2x under-forecast weight and the 15% threshold are assumptions to validate; the sensitivity check at 1.5 and 3 has not been run yet.
-- Batch times (18:00 run, 18:30 ready) are assumptions to validate with the client's planning routine.
-- The next-evening model is not yet built: notebook features, `LAG_MIN` and the leakage test must be updated to the 17:00 cutoff, and the gate must be run against same hour last week.
+- The 2x under-forecast weight and the 15% threshold are assumptions to validate with the client (the sensitivity check at 1.5 and 3 shows the decision does not depend on the weight).
+- Batch times (18:00 run, 18:30 ready) are assumptions to validate with the client's planning routine; the nightly schedule itself is not set up.
 - The 4-week drift window is a starting choice, not yet tested.
 - Cost per prediction can only be measured in the deployed system.
 
+## 2. Setup, test and run
 
+### Setup (once per laptop)
+1. Clone the repo and open the folder in VS Code (**File > Open Folder**):
+   ```bash
+   git clone https://github.com/segobe/MBDS_April2026_MLOps_Group3.git
+   ```
+2. In the VS Code terminal, at the repo root, create and activate the environment:
+   ```bash
+   conda env create -f environment.yml
+   conda activate bike-demand
+   ```
+   Check: the prompt starts with `(bike-demand)` and `python --version` shows 3.12. If `environment.yml` changes later: `conda env update -f environment.yml --prune`
+3. In VS Code: `>Python: Select Interpreter`, pick `bike-demand`.
+4. Download `hour.csv` (UCI Bike Sharing Dataset) and place it in `data/raw/`.
+5. Build the demo inference file. There is no real "tomorrow" in a fixed 2012 dataset, so this takes the 8 days before 2012-12-20 (history ending at 16:00 the day before) plus that day's 24 hours with the demand removed:
+   ```bash
+   python -c "
+   import pandas as pd
+   # TEMP: demo only, rows may have appeared in training
+   raw = pd.read_csv('data/raw/hour.csv')
+   date = pd.Timestamp('2012-12-20')
+   d = pd.to_datetime(raw['dteday'])
+   keep = (d >= date - pd.Timedelta(days=8)) & (d <= date) & ~((d == date - pd.Timedelta(days=1)) & (raw['hr'] >= 17))
+   demo = raw[keep].copy()
+   demo.loc[pd.to_datetime(demo['dteday']) == date, ['casual', 'registered', 'cnt']] = None
+   demo.to_csv('data/inference/inference_input.csv', index=False)
+   "
+   ```
+   **TEMP: demo only.** These rows may have appeared in training, so the forecast is a demonstration of the pipeline, never out-of-sample evidence.
+
+Data, models and reports are never committed (`.gitignore`).
+
+### Test (repo root, `bike-demand` active)
+```bash
+pytest -vv                                                                   # all tests, none skipped
+pytest --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=95  # branch coverage, fails below 95 %
+flake8 --max-complexity 10 src tests                                         # style and complexity: no output = clean
+```
+The tests use small synthetic data only; they need neither `hour.csv` nor the demo file.
+
+### Run
+```bash
+python -m src.main
+```
+One command trains, checks the quality gate and forecasts tomorrow. It writes:
+
+| Output | What it is for |
+| --- | --- |
+| `data/processed/clean.csv` | The cleaned hourly calendar with the past-demand features, kept for inspection and audit |
+| `models/model.joblib` | The fitted pipeline (feature recipe + model), reused for the forecast |
+| `reports/predictions.csv` | Tomorrow's forecast: `ts` (hour) and `prediction` (rentals), 24 rows |
+
+The log states whether the quality gate is met. Always start the pipeline with `python -m`, not the VS Code Run button. Every setting (paths, cutoff, split, model, gate) lives in `SETTINGS` at the top of `src/main.py`; change values there only.
+
+### Team workflow
+1. Read `TEAM_BRIEF.md`: owners, branch names and shared decisions
+2. Switch to `dev`, run `>Git: Pull`, then `>Git: Create Branch From...`, pick `dev`, and use your branch from the brief
+3. Tests first, then code; open a Pull Request into `dev`. Never commit directly to `dev` or `main`
+
+## 3. Results and evidence
+
+| Evidence | Value | Source |
+| --- | --- | --- |
+| Validation `weighted_mae`, model and same hour last week | 79.58 vs 85.88 rentals per hour (July to September 2012) | `main` log |
+| `weighted_mae_ratio` and gate status (threshold 0.85) | 0.927: **not met** | `main` log |
+| Sensitivity at `under_weight` 1.5 and 3 | 0.926 and 0.927: the decision does not change | `notebooks/max_iter_and_gate.ipynb` |
+| Training time and time to forecast one day | 8.2 s training; the whole run, including the 24-hour forecast, about 9 s | `main` log, notebook |
+| Size of the system: modules, tests, branch coverage | 9 modules, 112 tests, 99 % | pytest output |
+
+`max_iter` was re-selected on the validation split in the exploratory notebook (300 instead of the provisional 622, which overfits the 2011 demand level), and two cutoff-safe features were added (same hour yesterday before 17:00, last hour before the cutoff). Together they moved the ratio from 1.296 to 0.927. The test split was scored only once, in the notebook, and was never used for choices.
+
+**Value, cost and complexity.** The value today is mostly in the checks, not yet in the model: the model beats same hour last week by 7 %, short of the 15 % gate, and the pipeline says so in every run instead of hiding it. What already works is the safety net: every run validates the data, inserts and flags missing hours, enforces the 17:00 cutoff (a leakage test proves no feature reads later data), and reports the gate on hours the model never saw. The cost is small: a full run takes about 9 seconds, far inside the 18:00 to 18:30 window, so the EUR 20 to 100 per month infrastructure estimate is generous. The complexity is the real price: nine modules, 112 tests and the team rules to maintain, against one notebook. That is worth paying only if the model passes the gate; until then the honest recommendation is to keep planning with same hour last week and use the pipeline to test the next model ideas safely.
+
+### README agrees with the settings
+| Item | README | Setting (`SETTINGS` in `src/main.py`) | Agrees |
+| --- | --- | --- | --- |
+| Metric and gate | `weighted_mae`, ratio <= 0.85 | `quality_gate`: `weighted_mae_ratio`, `<=`, 0.85 | ✓ |
+| Under-forecast weight | 2 (with sensitivity) | `evaluation.under_weight` = 2.0, `model.quantile` = 2/3 | ✓ |
+| Baseline | same hour last week | `evaluation.baseline_column` = `lag_168` | ✓ |
+| Cutoff | data up to 17:00 | `cleaning.cutoff_hour` = 17 | ✓ |
+| Split | chronological, about Q3 validation, Q4 test | `split`: `time_ordered` = True, 0.126 / 0.126 | ✓ |
+| Excluded inputs | weather, `casual`, `registered` | `features`: only calendar and past-demand columns | ✓ |
 
 
 # MLOps Project Skeleton (reference only)
