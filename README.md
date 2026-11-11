@@ -2,6 +2,37 @@
 
 > Capital Bikeshare should fund this MLOps forecasting system because gated releases, drift monitoring and automatic fallback keep tomorrow's crew plans reliable, unlike one-off notebooks.
 
+## Quick start
+
+### Set up (once per laptop)
+1. Clone the repo and open the folder in VS Code (**File > Open Folder**):
+   ```bash
+   git clone https://github.com/segobe/MBDS_April2026_MLOps_Group3.git
+   ```
+2. In the VS Code terminal, at the repo root, create and activate the environment:
+   ```bash
+   conda env create -f environment.yml
+   conda activate bike-demand
+   ```
+   Check: the prompt starts with `(bike-demand)` and `python --version` shows 3.12.
+   If `environment.yml` changes later: `conda env update -f environment.yml --prune`
+3. In VS Code: `>Python: Select Interpreter`, pick `bike-demand` (or enter `<conda path>/envs/bike-demand/bin/python`)
+4. Download `hour.csv` (UCI Bike Sharing Dataset) and place it in `data/raw/`. Data is never committed.
+
+### Run (VS Code terminal, repo root, `bike-demand` active)
+```bash
+pytest -vv            # all tests
+flake8 src tests      # style check: no output means no violations
+python -m src.main    # full pipeline (works once all modules are merged into dev)
+```
+The pipeline writes `data/processed/clean.csv`, `models/model.joblib` and `reports/predictions.csv` (paths set in `SETTINGS`, `src/main.py`). Always start it with `python -m`, not the VS Code Run button.
+
+### Team workflow
+1. Read `TEAM_BRIEF.md`: owners, branch names and shared decisions
+2. Switch to `dev`, run `>Git: Pull`, then `>Git: Create Branch From...`, pick `dev`, and use your branch from the brief
+3. Tests first, then code; open a Pull Request into `dev`. Never commit directly to `dev` or `main`
+
+
 ## 1. Business case
 
 ### Context
