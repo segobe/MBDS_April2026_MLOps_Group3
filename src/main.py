@@ -42,7 +42,7 @@ SETTINGS = {
         ],
     },
     "model": {
-        "loss": "quantile", "quantile": 2 / 3, "learning_rate": 0.05, "max_iter": 400,
+        "loss": "quantile", "quantile": 2 / 3, "learning_rate": 0.05, "max_iter": 300,
         "max_leaf_nodes": 31, "min_samples_leaf": 40, "early_stopping": False,
     },
     "evaluation": {"under_weight": 2.0, "baseline_column": "lag_168"},
