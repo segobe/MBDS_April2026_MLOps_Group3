@@ -8,30 +8,32 @@ Target: cnt | Problem type: regression | ID column: ts (timestamp from dteday + 
 Feature groups: calendar: hr, weekday, mnth, season, holiday, workingday -> passthrough (tree model; notebook used raw integers)
 Feature groups: past_demand: lag_48, lag_168, mean_168_to_cutoff, lag_24_before_cutoff, last_hour_before_cutoff -> passthrough (built in clean_data with fixed past-only rules)
 Excluded columns: instant (row number), dteday (replaced by ts), yr (not used in notebook), casual and registered (sum to the target), weathersit, temp, atemp, hum, windspeed (unknown the evening before), is_imputed (reveals the target)
-Model: HistGradientBoostingRegressor, loss="quantile", quantile=2/3, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=40, early_stopping=False (default shuffles a hold-out and leaks the future; notebook cell 17), max_iter=400 (selected on the validation split in notebooks/max_iter_and_gate.ipynb)
+Model: HistGradientBoostingRegressor, loss="quantile", quantile=2/3, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=40, early_stopping=False (default shuffles a hold-out and leaks the future; notebook cell 17), max_iter=300 (selected on the validation split in notebooks/max_iter_and_gate.ipynb)
 Metric: weighted_mae (under-forecast weight 2.0), key in evaluate_model output: ["weighted_mae_ratio"] (model / same hour last week), quality gate: <= 0.85 (README, Goal and success metrics)
 Split: chronological, no shuffling: test 0.126 and validation 0.126, both of the full dataset (about Q3 2012 validation, Q4 2012 test); random_state 42 (model only)
 Validation rules: required columns present; no duplicate ts; hr in 0..23; cnt non-negative integer; cnt = casual + registered (training mode only); holiday and workingday in {0, 1} (notebook section 1; README risk: data quality)
 
 ## Contract details, decisions and owners
-README follow-ups: rewrite problem statement for crew scheduling -> Sebastian Gollhofer; re-select max_iter and check the 0.85 gate at the 17:00 cutoff in an exploratory notebook, then run the gate at weights 1.5 and 3 -> Daniel Rodriguez; crew KPI baselines and batch times -> Sebastian Gollhofer with client
+README follow-ups: rewrite problem statement for crew scheduling -> Sebastian Gollhofer; re-select max_iter and check the 0.85 gate at the 17:00 cutoff in an exploratory notebook, then run the gate at weights 1.5 and 3 -> done by Sebastian Gollhofer (notebooks/max_iter_and_gate.ipynb); crew KPI baselines and batch times -> Sebastian Gollhofer with client
 features.py signature: get_feature_preprocessor(calendar_columns, past_demand_columns), settings per group: none (passthrough)
 Agreed extra parameters: split_data(time_ordered=False), clean_dataframe(cutoff_hour=17, demand_column="cnt"), evaluate_model(under_weight=2.0, baseline_column=None)
 utils.py helpers: load_csv, save_csv, save_model, load_model
+Signatures: load_raw_data(raw_data_path); clean_dataframe(df_raw, target_column=None, cutoff_hour=17, demand_column="cnt"); validate_dataframe(df, required_columns, target_column=None, id_column=None, value_ranges=None, allowed_values=None, integer_columns=None, sum_rules=None); split_data(X, y, test_size, val_size, random_state, stratify, time_ordered=False); train_model(X_train, y_train, preprocessor, problem_type, model_params=None, random_state=42); evaluate_model(model, X_eval, y_eval, problem_type, under_weight=2.0, baseline_column=None); run_inference(model, X_infer, include_proba=False); main()
+Settings: SETTINGS at the top of src/main.py, keys paths, problem (target_column, problem_type, id_column), split (test_size, val_size, random_state, stratify, time_ordered), cleaning (cutoff_hour, demand_column), features, model, evaluation (under_weight, baseline_column), validation, quality_gate (metric_key, comparison, threshold); move to config.yaml deferred until Session 10
 Environment: no packages beyond pandas, numpy, scikit-learn, joblib, pytest, pytest-cov, flake8, plus notebook tools matplotlib and ipykernel (notebooks only, never imported in src/)
 Decisions: split -> chronological, SETTINGS passes time_ordered=True (shuffling leaks the future; notebook section 4)
 Decisions: missing hours -> inserted in clean_data with cnt, casual and registered 0 and is_imputed 1 (notebook section 2; README Data)
-Decisions: lags -> fixed rules relative to 17:00 the day before the target date, in clean_data; training mode drops rows without 7 days of history (to confirm)
-Decisions: inference input -> history up to 17:00 today plus tomorrow's 24 calendar rows; main passes only tomorrow's rows to run_inference (to confirm)
-Decisions: gate -> evaluate_model computes weighted_mae for the model and for lag_168 on the validation split and returns their ratio (to confirm)
+Decisions: lags -> fixed rules relative to 17:00 the day before the target date, in clean_data; training mode drops rows without 7 days of history
+Decisions: inference input -> history up to 17:00 today plus tomorrow's 24 calendar rows; main passes only tomorrow's rows (missing demand) to run_inference; demo file data/inference/inference_input.csv built from hour.csv (TEMP: demo only, README Setup)
+Decisions: gate -> evaluate_model computes weighted_mae for the model and for lag_168 on the validation split and returns their ratio; main logs the gate as met or NOT met and never stops, tunes or relaxes it
 Decisions: negative forecasts -> run_inference and evaluate_model clip predictions at 0 (notebook cells 17 and 20)
 Decisions: split boundaries -> approximately Q3/Q4 2012, about a day off after dropping history rows (accepted; README baseline 104.72 is on exact Q4)
-Owners (team): utils -> Sebastiano Cuniberti (@sebastianocuniberti), branch feature/utils
-Owners (team): load_data -> Sebastiano Cuniberti (@sebastianocuniberti), branch feature/load-data
+Owners (team): utils -> Daniel Rodriguez (@Danielrodgo), branch feature/utils
+Owners (team): load_data -> Daniel Rodriguez (@Danielrodgo), branch feature/load-data
 Owners (team): clean_data -> Sebastian Gollhofer (@segobe), branch feature/clean-data
 Owners (team): validate -> Daniella Jimenez (@danijimenez96), branch feature/validate
-Owners (team): features -> Daniella Jimenez (@danijimenez96), branch feature/features
+Owners (team): features -> Daniel Rodriguez (@Danielrodgo), branch feature/features
 Owners (team): train -> Ahsan Sheikh (@ahsanshaik-glitch), branch feature/train
-Owners (team): evaluate -> Daniel Rodriguez (@Danielrodgo), branch feature/evaluate
-Owners (team): infer -> Ahsan Sheikh (@ahsanshaik-glitch), branch feature/infer
+Owners (team): evaluate -> Sebastiano Cuniberti (@sebastianocuniberti), branch feature/evaluate
+Owners (team): infer -> Daniel Rodriguez (@Danielrodgo), branch feature/infer
 Owners (team): main -> Sebastian Gollhofer (@segobe), branch feature/main
