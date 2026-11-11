@@ -124,11 +124,11 @@ def test_unit_gate_errors(gate: dict, match: str) -> None:
         pipeline._gate_met({"weighted_mae_ratio": 0.8}, gate)
 
 
-def test_unit_resolve_paths_under_project_root() -> None:
+def test_unit_resolve_paths_under_project_root(tmp_path: Path) -> None:
     """A relative path is placed under PROJECT_ROOT; an absolute path is kept."""
-    resolved = pipeline._resolve_paths({"raw_data": "data/raw/hour.csv", "model": "/tmp/model.joblib"})
+    resolved = pipeline._resolve_paths({"raw_data": "data/raw/hour.csv", "model": str(tmp_path / "model.joblib")})
     assert resolved["raw_data"] == pipeline.PROJECT_ROOT / "data" / "raw" / "hour.csv"
-    assert resolved["model"] == Path("/tmp/model.joblib")
+    assert resolved["model"] == tmp_path / "model.joblib"
 
 
 @pytest.mark.parametrize("threshold, status", [(100.0, "Quality gate met"), (0.01, "Quality gate NOT met")])
