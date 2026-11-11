@@ -6,9 +6,9 @@ Notebook: notebooks/bike_demand_forecast.ipynb
 ## Data, features and model
 Target: cnt | Problem type: regression | ID column: ts (timestamp from dteday + hr, built in clean_data)
 Feature groups: calendar: hr, weekday, mnth, season, holiday, workingday -> passthrough (tree model; notebook used raw integers)
-Feature groups: past_demand: lag_48, lag_168, mean_168_to_cutoff -> passthrough (built in clean_data with fixed past-only rules)
+Feature groups: past_demand: lag_48, lag_168, mean_168_to_cutoff, lag_24_before_cutoff, last_hour_before_cutoff -> passthrough (built in clean_data with fixed past-only rules)
 Excluded columns: instant (row number), dteday (replaced by ts), yr (not used in notebook), casual and registered (sum to the target), weathersit, temp, atemp, hum, windspeed (unknown the evening before), is_imputed (reveals the target)
-Model: HistGradientBoostingRegressor, loss="quantile", quantile=2/3, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=40, early_stopping=False (default shuffles a hold-out and leaks the future; notebook cell 17), max_iter=622 (provisional, from the old 2-hour setup; re-select in an exploratory notebook)
+Model: HistGradientBoostingRegressor, loss="quantile", quantile=2/3, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=40, early_stopping=False (default shuffles a hold-out and leaks the future; notebook cell 17), max_iter=400 (selected on the validation split in notebooks/max_iter_and_gate.ipynb)
 Metric: weighted_mae (under-forecast weight 2.0), key in evaluate_model output: ["weighted_mae_ratio"] (model / same hour last week), quality gate: <= 0.85 (README, Goal and success metrics)
 Split: chronological, no shuffling: test 0.126 and validation 0.126, both of the full dataset (about Q3 2012 validation, Q4 2012 test); random_state 42 (model only)
 Validation rules: required columns present; no duplicate ts; hr in 0..23; cnt non-negative integer; cnt = casual + registered (training mode only); holiday and workingday in {0, 1} (notebook section 1; README risk: data quality)

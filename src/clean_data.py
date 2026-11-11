@@ -114,19 +114,25 @@ def _fill_day_flags(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _add_past_demand_features(df: pd.DataFrame, demand_column: str, cutoff_hour: int) -> pd.DataFrame:
-    """Add lag_48, lag_168 and the 168-hour mean that ends just before cutoff_hour on D - 1.
+    """Add the five past-demand features, each using only hours before cutoff_hour on D - 1.
 
     Inputs: df, the completed calendar sorted by ts; demand_column, the demand to read;
         cutoff_hour, the first hour on D - 1 that features may not use.
-    Outputs: the same frame with lag_48, lag_168 and mean_168_to_cutoff (missing if fewer than 168 hours).
-    Why: the forecast is made at the cutoff on D - 1, so every feature may use only hours before it.
+    Outputs: the same frame with lag_48, lag_168, mean_168_to_cutoff (missing if fewer than 168 hours),
+        lag_24_before_cutoff (same hour yesterday, missing from cutoff_hour on) and
+        last_hour_before_cutoff (demand at hour cutoff_hour - 1 on D - 1).
+    Why: the forecast is made at the cutoff on D - 1, so every feature may use only hours before it;
+        the two recent-level features lower the validation ratio from 1.05 to 0.92
+        (notebooks/max_iter_and_gate.ipynb).
     """
     demand = df[demand_column]
     df["lag_48"] = demand.shift(48)
     df["lag_168"] = demand.shift(168)
+    df["lag_24_before_cutoff"] = demand.shift(24).where(df["hr"] < cutoff_hour)
     window_mean = pd.Series(demand.rolling(168, min_periods=168).mean().to_numpy(), index=df["ts"])
     window_end = df["ts"].dt.normalize() - pd.Timedelta(days=1) + pd.Timedelta(hours=cutoff_hour - 1)
     df["mean_168_to_cutoff"] = window_end.map(window_mean)
+    df["last_hour_before_cutoff"] = window_end.map(pd.Series(demand.to_numpy(), index=df["ts"]))
     return df
 
 
@@ -153,7 +159,8 @@ def clean_dataframe(
     Inputs: df_raw, the raw hourly frame (hour.csv layout); target_column, the target in training mode,
         None in inference mode; cutoff_hour, from SETTINGS['cleaning']['cutoff_hour'];
         demand_column, from SETTINGS['cleaning']['demand_column'].
-    Outputs: a new frame with all original columns plus ts, is_imputed, lag_48, lag_168, mean_168_to_cutoff.
+    Outputs: a new frame with all original columns plus ts, is_imputed and the five past-demand features
+        (see _add_past_demand_features).
     Raises: ValueError for any broken input (see _check_inputs and _build_timestamp).
     Why: fixed past-only rules, so the 17:00 cutoff from README Solution holds before the split.
     """

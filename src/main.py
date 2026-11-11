@@ -37,10 +37,12 @@ SETTINGS = {
     "cleaning": {"cutoff_hour": 17, "demand_column": "cnt"},
     "features": {
         "calendar_columns": ["hr", "weekday", "mnth", "season", "holiday", "workingday"],
-        "past_demand_columns": ["lag_48", "lag_168", "mean_168_to_cutoff"],
+        "past_demand_columns": [
+            "lag_48", "lag_168", "mean_168_to_cutoff", "lag_24_before_cutoff", "last_hour_before_cutoff",
+        ],
     },
     "model": {
-        "loss": "quantile", "quantile": 2 / 3, "learning_rate": 0.05, "max_iter": 622,
+        "loss": "quantile", "quantile": 2 / 3, "learning_rate": 0.05, "max_iter": 400,
         "max_leaf_nodes": 31, "min_samples_leaf": 40, "early_stopping": False,
     },
     "evaluation": {"under_weight": 2.0, "baseline_column": "lag_168"},
@@ -48,7 +50,7 @@ SETTINGS = {
         "required_columns": [
             "dteday", "hr", "weekday", "mnth", "season", "holiday", "workingday",
             "cnt", "casual", "registered", "ts", "is_imputed",
-            "lag_48", "lag_168", "mean_168_to_cutoff",
+            "lag_48", "lag_168", "mean_168_to_cutoff", "lag_24_before_cutoff", "last_hour_before_cutoff",
         ],
         "id_column": "ts",
         "value_ranges": {"hr": [0, 23], "cnt": [0, None]},
